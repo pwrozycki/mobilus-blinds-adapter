@@ -62,9 +62,11 @@ I made some observations when using the adapter that allowed me to improve its b
 
 Synchronization on power on:
 
+[01_synchronization.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/4956b844-3c2e-4d38-9e11-4a3b50804d67)
 
 Handling of 6 commands sent one after another:
 ```bash
 for i in 'up 8' 'up 9' 'up 10' 'st 8' 'st 9' 'st 10'  ; do  mosquitto_pub -h 192.168.1.8 -t mobilus/blinds/command -m "$i" ;done
 ```
+[02_sequence_of_commands.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/432c84b0-9d2d-4b7f-b43d-6074bc92fc4d)
 
