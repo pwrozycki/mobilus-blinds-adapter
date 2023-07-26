@@ -22,7 +22,7 @@ void synchronize();
 
 void switchToBlindByNum(int num);
 
-bool handleUpDown(const char *message, const char *operationPrefix, void (*callback)());
+bool handleCommand(const char *message, const char *operationPrefix, void (*callback)());
 
 void sendOnlineMessage();
 
@@ -57,7 +57,7 @@ const int DELAY_AFTER_COMMAND_MS = 1500;
 const int DELAY_REMOTE_INACTIVE_MS = 1000;
 const int DELAY_WAKING_PRESS_MS = 75;
 const int DELAY_NORMAL_PRESS = 25;
-const int SEGMENT_ACTIVE_MVOLTS_THRESHOLD = 2000;
+const int SEGMENT_INACTIVE_MVOLTS_THRESHOLD = 2000;
 
 const int DELAY_BETWEEN_NAV_MS = 35;
 const int DELAY_ONLINE_MESSAGE_MS = 1000;
@@ -155,15 +155,15 @@ void markSynchronizedIfBlind20Reached() {
 }
 
 bool displayContainsDigitTwo() {
-  int segmentActiveCount = 0;
+  int segmentInactiveCount = 0;
   for (int i = 0; i < 10; i++) {
     delay(5);
     int milliVolts = analogReadMilliVolts(LED_LEFT_PIN);
-    if (milliVolts > SEGMENT_ACTIVE_MVOLTS_THRESHOLD) {
-      segmentActiveCount += 1;
+    if (milliVolts > SEGMENT_INACTIVE_MVOLTS_THRESHOLD) {
+      segmentInactiveCount += 1;
     }
   }
-  return segmentActiveCount > 3;
+  return segmentInactiveCount > 3;
 }
 
 void moveUp() {
@@ -195,21 +195,18 @@ void onMqttMessage(int messageSize) {
     char message[100];
     mqttClient.read((uint8_t *) message, 100);
 
-    handleUpDown(message, "UP ", moveUp) ||
-    handleUpDown(message, "DO ", moveDown) ||
-    handleUpDown(message, "ST ", stop) ||
-    handleUpDown(message, "NO ", nop) ||
-    handleUpDown(message, "PR ", enterLeaveBlindProgramming);
+    handleCommand(message, "UP ", moveUp) ||
+    handleCommand(message, "DO ", moveDown) ||
+    handleCommand(message, "ST ", stop) ||
+    handleCommand(message, "NO ", nop) ||
+    handleCommand(message, "PR ", enterLeaveBlindProgramming);
   }
 }
 
-bool handleUpDown(const char *message, const char *operationPrefix, void (*callback)()) {
+bool handleCommand(const char *message, const char *operationPrefix, void (*callback)()) {
   if (strncasecmp(message, operationPrefix, 3) == 0) {
     int num = atoi(message + 3);
     if (num != 0) {
-      Serial.println(operationPrefix);
-      Serial.println(num);
-
       switchToBlindByNum(num);
       delay(DELAY_BETWEEN_NAV_MS);
       callback();
