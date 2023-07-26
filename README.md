@@ -60,13 +60,49 @@ I made some observations when using the adapter that allowed me to improve its b
 
 ## Video footage
 
-Synchronization on power on:
+1. Synchronization on power on:
 
-[01_synchronization.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/4956b844-3c2e-4d38-9e11-4a3b50804d67)
+   [01_synchronization.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/4956b844-3c2e-4d38-9e11-4a3b50804d67)
+   
+   Footage shows adapter counting down to reach value 20. After this short sequence adapter knows ```current position``` of remote and is ready to handle messages on subscribed topic.
 
-Handling of 6 commands sent one after another:
-```bash
-for i in 'up 8' 'up 9' 'up 10' 'st 8' 'st 9' 'st 10'  ; do  mosquitto_pub -h 192.168.1.8 -t mobilus/blinds/command -m "$i" ;done
+3. Handling of 6 commands sent one after another:
+
+   ```bash
+   for i in 'up 8' 'up 9' 'up 10' 'st 8' 'st 9' 'st 10'  ; do  mosquitto_pub -h 192.168.1.8 -t mobilus/blinds/command -m "$i" ;done
+   ```
+   [02_sequence_of_commands.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/432c84b0-9d2d-4b7f-b43d-6074bc92fc4d)
+
+   Although not shown in the footage, corresponding blinds 8, 9, 10 start raising and are stopped a moment later.
+
+## HomeAssistant configuration
+
+Configuration for home assistant is fairly simple. Once you add it you can use cover.kuchnia_w in your dashboards or automations.
+
+```yaml
+cover:
+  - platform: template
+    covers:
+      kuchnia_w:
+        device_class: blind
+        friendly_name: "kuchnia_w"
+        position_template: "{{ None }}"
+        open_cover:
+          - service: mqtt.publish
+            data:
+              payload: "up 1"
+              topic: "mobilus/blinds/command"
+        close_cover:
+          - service: mqtt.publish
+            data:
+              payload: "do 1"
+              topic: "mobilus/blinds/command"
+        stop_cover:
+          - service: mqtt.publish
+            data:
+              payload: "st 1"
+              topic: "mobilus/blinds/command"
 ```
-[02_sequence_of_commands.webm](https://github.com/pwrozycki/mobilus-blinds-adapter/assets/7523887/432c84b0-9d2d-4b7f-b43d-6074bc92fc4d)
+above example defines cover "1" with actions to open, close and stop cover.
 
+Position_template needs  to be specified as ```{{None}}``` because otherwise HomeAssistant assumes optimistic behavior, disactivating lower / raise buttons depending on guessed state of a cover.
