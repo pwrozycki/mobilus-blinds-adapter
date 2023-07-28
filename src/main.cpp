@@ -12,7 +12,7 @@ void markSynchronizedIfBlind20Reached();
 
 void onMqttMessage(int messageSize);
 
-void connect_wifi();
+void reconnectWifiIfNeeded();
 
 void setup_pins();
 
@@ -28,6 +28,9 @@ void sendOnlineMessage();
 
 void delayOnButtonPress();
 
+void reconnectMqttIfNeeded();
+
+void reconnectIfNeeded();
 
 const int LED_LEFT_PIN = 3;
 const int LED_RIGHT_PIN = 5;
@@ -39,7 +42,9 @@ const int BUTTON_RIGHT_PIN = 16;
 const int BUTTON_MID_PIN = 18;
 
 #if __has_include("secrets.h")
+
 #include "secrets.h"
+
 #endif
 
 #ifndef SSID
@@ -57,10 +62,13 @@ const int DELAY_AFTER_COMMAND_MS = 1500;
 const int DELAY_REMOTE_INACTIVE_MS = 1000;
 const int DELAY_WAKING_PRESS_MS = 75;
 const int DELAY_NORMAL_PRESS = 25;
+const int DELAY_BETWEEN_NAV_MS = 35;
+
+const int DELAY_ONLINE_MESSAGE_MS = 1000;
+const int DELAY_RECONNECTION_RETRIAL = 10000;
+
 const int SEGMENT_INACTIVE_MVOLTS_THRESHOLD = 2000;
 
-const int DELAY_BETWEEN_NAV_MS = 35;
-const int DELAY_ONLINE_MESSAGE_MS = 1000;
 
 // synchronization
 int countOfConsecutiveTwos = 0;
@@ -68,9 +76,12 @@ int countOfConsecutiveTwos = 0;
 // position
 int currentBlind = -1;
 
-int lastOnlineMessageSentMillis = 0;
+// last <action> timestamps
+int lastOnlineMessageSentMillis = -DELAY_RECONNECTION_RETRIAL;
 
-unsigned int lastButtonPressMillis = 0;
+int lastCheckedConnectionMillis = -DELAY_RECONNECTION_RETRIAL;
+
+int lastButtonPressMillis = -DELAY_RECONNECTION_RETRIAL;
 
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
@@ -78,16 +89,7 @@ MqttClient mqttClient(wifiClient);
 
 void setup() {
   setup_pins();
-  connect_wifi();
-
-  while (!mqttClient.connect(MQTT_BROKER, MQTT_PORT)) {
-    Serial.print("MQTT connection failed! Error code = ");
-    Serial.println(mqttClient.connectError());
-    delay(5000);
-  }
-
   mqttClient.onMessage(onMqttMessage);
-  mqttClient.subscribe(COMMAND_TOPIC);
 }
 
 void setup_pins() {
@@ -101,35 +103,17 @@ void setup_pins() {
   pinMode(BUTTON_MID_PIN, OUTPUT);
 }
 
-void connect_wifi() {
-  WiFi.mode(WIFI_STA); //Optional
-  WiFi.hostname(HOSTNAME);
-  WiFi.begin(SSID, PASSWORD);
-  Serial.println("\nConnecting");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(100);
-  }
-}
-
 void loop() {
   if (!currentBlindKnown()) {
     synchronize();
-  } else {
-    sendOnlineMessage();
+    return;
   }
 
-  mqttClient.poll();
-}
+  reconnectIfNeeded();
 
-void sendOnlineMessage() {
-  int currentMillis = millis();
-  if (currentMillis - lastOnlineMessageSentMillis > DELAY_ONLINE_MESSAGE_MS) {
-    mqttClient.beginMessage(ONLINE_TOPIC);
-    mqttClient.print("online");
-    mqttClient.endMessage();
-    lastOnlineMessageSentMillis = currentMillis;
+  if (mqttClient.connected()) {
+    sendOnlineMessage();
+    mqttClient.poll();
   }
 }
 
@@ -164,6 +148,47 @@ bool displayContainsDigitTwo() {
     }
   }
   return segmentInactiveCount > 3;
+}
+
+void reconnectIfNeeded() {
+  int now = millis();
+  if (now - lastCheckedConnectionMillis > DELAY_RECONNECTION_RETRIAL) {
+    reconnectWifiIfNeeded();
+    reconnectMqttIfNeeded();
+
+    lastCheckedConnectionMillis = now;
+  }
+}
+
+void reconnectWifiIfNeeded() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
+  WiFi.begin(SSID, PASSWORD);
+  for (int i = 0; i < 10; i++) {
+    delay(1000);
+    if (WiFi.status() == WL_CONNECTED) {
+      break;
+    }
+  }
+}
+
+void reconnectMqttIfNeeded() {
+  bool reconnected = !mqttClient.connected() && mqttClient.connect(MQTT_BROKER, MQTT_PORT);
+  if (reconnected) {
+    mqttClient.subscribe(COMMAND_TOPIC);
+  }
+}
+
+void sendOnlineMessage() {
+  int now = millis();
+  if (now - lastOnlineMessageSentMillis > DELAY_ONLINE_MESSAGE_MS) {
+    mqttClient.beginMessage(ONLINE_TOPIC);
+    mqttClient.print("online");
+    mqttClient.endMessage();
+    lastOnlineMessageSentMillis = now;
+  }
 }
 
 void moveUp() {
@@ -223,7 +248,7 @@ void buttonOnOff(int pin) {
 }
 
 void delayOnButtonPress() {
-  unsigned int now = millis();
+  int now = millis();
   if (now - lastButtonPressMillis > DELAY_REMOTE_INACTIVE_MS) {
     delay(DELAY_WAKING_PRESS_MS);
   } else {
