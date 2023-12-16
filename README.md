@@ -49,7 +49,7 @@ but I noticed that one of segments ("c") is off only when digit "2" is displayed
 Later it turned out that it sufficient to connect to only one of them. By trial end error I noticed that > 2V on that pin means that ```one of digits is displaying value of 2```.
 This observation was crucial to code the ```synchronize()``` function. It is working by counting down endlessly until for 10 consecutive position changes one of digits is displaying value 2. When this happens we know that current position == 20.
 
-Perhaps somewhat dirty, but works.
+Update: this has been simplified a bit in the latest implementation - synchronization function down detects if both "c" segments are off - this means that currently displayed value is "22".
 
 ## Tuning hardware 
 
@@ -106,3 +106,11 @@ cover:
 above example defines cover "1" with actions to open, close and stop cover.
 
 Position_template needs  to be specified as ```{{None}}``` because otherwise HomeAssistant assumes optimistic behavior, disactivating lower / raise buttons depending on guessed state of a cover.
+
+## Reliability
+
+After 2 last reliability commits that addressed and successfully resolved:
+- reconnection with MQTT / WiFi in event of temporary WiFi / MQTT server unavailability
+- synchronization issues that were caused by overly aggressive timing.
+
+I have been using this at in my home automation for 6 months. It turned out to be 100% robust & bulletproof
