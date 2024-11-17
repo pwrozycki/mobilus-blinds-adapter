@@ -6,9 +6,9 @@ void buttonOnOff(int pin);
 
 void buttonOnOff(int pin1, int pin2);
 
-bool displayEquals22();
+bool displayEqualsLast();
 
-void markSynchronizedIfBlind20Reached();
+void markSynchronizedIfBlindReached();
 
 void onMqttMessage(int messageSize);
 
@@ -76,6 +76,7 @@ const int SEGMENT_INACTIVE_MVOLTS_THRESHOLD = 2000;
 
 // position
 int currentBlind = -1;
+const int MAX_BLINDS_ON_REMOTE = 22;
 
 // last <action> timestamps
 int lastOnlineMessageSentMillis = -DELAY_RECONNECTION_RETRIAL;
@@ -121,18 +122,18 @@ void loop() {
 void synchronize() {
   buttonOnOff(BUTTON_LEFT_PIN);
   delay(DELAY_BETWEEN_NAV_MS);
-  markSynchronizedIfBlind20Reached();
+  markSynchronizedIfBlindReached();
 }
 
 bool currentBlindKnown() { return currentBlind != -1; }
 
-void markSynchronizedIfBlind20Reached() {
-  if (displayEquals22()) {
-    currentBlind = 22;
+void markSynchronizedIfBlindReached() {
+  if (displayEqualsLast()) {
+    currentBlind = MAX_BLINDS_ON_REMOTE;
   }
 }
 
-bool displayEquals22() {
+bool displayEqualsLast() {
   int now = millis();
   while (millis() < now + DURATION_DISPLAY_DIGIT_PROBE_MS) {
     int milliVolts = analogReadMilliVolts(LED_LEFT_PIN);
@@ -273,6 +274,15 @@ void buttonOnOff(int pin1, int pin2) {
 
 void switchToBlindByNum(int num) {
   int delta = num - currentBlind;
+  int halfOfDistance = MAX_BLINDS_ON_REMOTE / 2;
+  if (abs(delta) > halfOfDistance) {
+    if (delta < 0) {
+      delta = delta + MAX_BLINDS_ON_REMOTE;
+    } else {
+      delta = delta - MAX_BLINDS_ON_REMOTE;
+    }
+  }
+
   if (delta != 0 && abs(delta) < 99) {
     for (int i = 0; i < abs(delta); i++) {
       if (i > 0) {
