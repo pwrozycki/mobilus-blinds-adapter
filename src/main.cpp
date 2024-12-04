@@ -6,9 +6,9 @@ void buttonOnOff(int pin);
 
 void buttonOnOff(int pin1, int pin2);
 
-bool displayEqualsLast();
+bool displayEquals22();
 
-void markSynchronizedIfBlindReached();
+void markSynchronizedIfBlind22Reached();
 
 void onMqttMessage(int messageSize);
 
@@ -74,9 +74,20 @@ const int DELAY_RECONNECTION_RETRIAL = 10000;
 
 const int SEGMENT_INACTIVE_MVOLTS_THRESHOLD = 2000;
 
+/**
+ * Adapt this number to maximum channel on your remote (by default 99).
+ * You cannot set it below 22, because synchronization needs to display "22".
+ */
+const int MAX_BLINDS_ON_REMOTE = 99;
+
+/**
+ * Synchronization blind is always 22 no matter what MAX_BLINDS_ON_REMOTE setting you use.
+ * It is so, because only if two digits are displaying "2" both "c" segments are off.
+ */
+const int SYNCHRONIZATION_BLIND = 22;
+
 // position
 int currentBlind = -1;
-const int MAX_BLINDS_ON_REMOTE = 22;
 
 // last <action> timestamps
 int lastOnlineMessageSentMillis = -DELAY_RECONNECTION_RETRIAL;
@@ -122,18 +133,18 @@ void loop() {
 void synchronize() {
   buttonOnOff(BUTTON_LEFT_PIN);
   delay(DELAY_BETWEEN_NAV_MS);
-  markSynchronizedIfBlindReached();
+  markSynchronizedIfBlind22Reached();
 }
 
 bool currentBlindKnown() { return currentBlind != -1; }
 
-void markSynchronizedIfBlindReached() {
-  if (displayEqualsLast()) {
-    currentBlind = MAX_BLINDS_ON_REMOTE;
+void markSynchronizedIfBlind22Reached() {
+  if (displayEquals22()) {
+    currentBlind = SYNCHRONIZATION_BLIND;
   }
 }
 
-bool displayEqualsLast() {
+bool displayEquals22() {
   int now = millis();
   while (millis() < now + DURATION_DISPLAY_DIGIT_PROBE_MS) {
     int milliVolts = analogReadMilliVolts(LED_LEFT_PIN);
@@ -230,8 +241,10 @@ void onMqttMessage(int messageSize) {
 bool handleBlindCommand(const char *message, const char *operationPrefix, void (*callback)()) {
   if (strncasecmp(message, operationPrefix, 3) == 0) {
     int num = atoi(message + 3);
-    if (num != 0) {
-      switchToBlindByNum(num);
+    if (num > 0 && num <= MAX_BLINDS_ON_REMOTE) {
+      if (num != currentBlind) {
+        switchToBlindByNum(num);
+      }
       delay(DELAY_BETWEEN_NAV_MS);
       callback();
     }
@@ -283,13 +296,11 @@ void switchToBlindByNum(int num) {
     }
   }
 
-  if (delta != 0 && abs(delta) < 99) {
-    for (int i = 0; i < abs(delta); i++) {
-      if (i > 0) {
-        delay(DELAY_BETWEEN_NAV_MS);
-      }
-      buttonOnOff(delta > 0 ? BUTTON_RIGHT_PIN : BUTTON_LEFT_PIN);
-      currentBlind = num;
+  for (int i = 0; i < abs(delta); i++) {
+    if (i > 0) {
+      delay(DELAY_BETWEEN_NAV_MS);
     }
+    buttonOnOff(delta > 0 ? BUTTON_RIGHT_PIN : BUTTON_LEFT_PIN);
+    currentBlind = num;
   }
 }
