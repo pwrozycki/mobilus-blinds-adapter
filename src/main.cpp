@@ -8,7 +8,7 @@ void buttonOnOff(int pin1, int pin2);
 
 bool displayEquals22();
 
-void markSynchronizedIfBlind20Reached();
+void markSynchronizedIfBlind22Reached();
 
 void onMqttMessage(int messageSize);
 
@@ -74,6 +74,18 @@ const int DELAY_RECONNECTION_RETRIAL = 10000;
 
 const int SEGMENT_INACTIVE_MVOLTS_THRESHOLD = 2000;
 
+/**
+ * Adapt this number to maximum channel on your remote (by default 99).
+ * You cannot set it below 22, because synchronization needs to display "22".
+ */
+const int MAX_BLINDS_ON_REMOTE = 99;
+
+/**
+ * Synchronization blind is always 22 no matter what MAX_BLINDS_ON_REMOTE setting you use.
+ * It is so, because only if two digits are displaying "2" both "c" segments are off.
+ */
+const int SYNCHRONIZATION_BLIND = 22;
+
 // position
 int currentBlind = -1;
 
@@ -121,14 +133,14 @@ void loop() {
 void synchronize() {
   buttonOnOff(BUTTON_LEFT_PIN);
   delay(DELAY_BETWEEN_NAV_MS);
-  markSynchronizedIfBlind20Reached();
+  markSynchronizedIfBlind22Reached();
 }
 
 bool currentBlindKnown() { return currentBlind != -1; }
 
-void markSynchronizedIfBlind20Reached() {
+void markSynchronizedIfBlind22Reached() {
   if (displayEquals22()) {
-    currentBlind = 22;
+    currentBlind = SYNCHRONIZATION_BLIND;
   }
 }
 
@@ -229,8 +241,10 @@ void onMqttMessage(int messageSize) {
 bool handleBlindCommand(const char *message, const char *operationPrefix, void (*callback)()) {
   if (strncasecmp(message, operationPrefix, 3) == 0) {
     int num = atoi(message + 3);
-    if (num != 0) {
-      switchToBlindByNum(num);
+    if (num > 0 && num <= MAX_BLINDS_ON_REMOTE) {
+      if (num != currentBlind) {
+        switchToBlindByNum(num);
+      }
       delay(DELAY_BETWEEN_NAV_MS);
       callback();
     }
@@ -273,13 +287,20 @@ void buttonOnOff(int pin1, int pin2) {
 
 void switchToBlindByNum(int num) {
   int delta = num - currentBlind;
-  if (delta != 0 && abs(delta) < 99) {
-    for (int i = 0; i < abs(delta); i++) {
-      if (i > 0) {
-        delay(DELAY_BETWEEN_NAV_MS);
-      }
-      buttonOnOff(delta > 0 ? BUTTON_RIGHT_PIN : BUTTON_LEFT_PIN);
-      currentBlind = num;
+  int halfOfDistance = MAX_BLINDS_ON_REMOTE / 2;
+  if (abs(delta) > halfOfDistance) {
+    if (delta < 0) {
+      delta = delta + MAX_BLINDS_ON_REMOTE;
+    } else {
+      delta = delta - MAX_BLINDS_ON_REMOTE;
     }
+  }
+
+  for (int i = 0; i < abs(delta); i++) {
+    if (i > 0) {
+      delay(DELAY_BETWEEN_NAV_MS);
+    }
+    buttonOnOff(delta > 0 ? BUTTON_RIGHT_PIN : BUTTON_LEFT_PIN);
+    currentBlind = num;
   }
 }
