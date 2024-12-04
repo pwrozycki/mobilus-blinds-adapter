@@ -170,6 +170,7 @@ void reconnectWifiIfNeeded() {
     return;
   }
 
+  WiFi.setHostname(HOSTNAME);
   WiFi.begin(SSID, PASSWORD);
   for (int i = 0; i < 10; i++) {
     delay(1000);
