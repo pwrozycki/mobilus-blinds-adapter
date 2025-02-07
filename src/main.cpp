@@ -4,7 +4,7 @@
 
 void buttonOnOff(int pin);
 
-void buttonOnOff(int pin1, int pin2);
+void buttonOnOffCustomDelay(int pin1, int pin2, int msec);
 
 bool displayEquals22();
 
@@ -65,6 +65,7 @@ const int DELAY_REMOTE_INACTIVE_MS = 1000;
 
 const int DURATION_WAKING_PRESS_MS = 75;
 const int DURATION_NORMAL_PRESS_MS = 35;
+const int DURATION_PROGRAMMING_PRESS_MS = 2000;
 const int DELAY_BETWEEN_NAV_MS = 35;
 
 const int DURATION_DISPLAY_DIGIT_PROBE_MS = 10;
@@ -221,7 +222,7 @@ void resynchronize() {
 }
 
 void enterLeaveBlindProgramming() {
-  buttonOnOff(BUTTON_MID_PIN, BUTTON_UP_PIN);
+  buttonOnOffCustomDelay(BUTTON_MID_PIN, BUTTON_UP_PIN, DURATION_PROGRAMMING_PRESS_MS);
   delay(DELAY_AFTER_COMMAND_MS);
 }
 
@@ -278,10 +279,16 @@ void delayOnButtonPress() {
   lastButtonPressMillis = now;
 }
 
-void buttonOnOff(int pin1, int pin2) {
+void delayOnButtonPress(int msec) {
+  int now = millis();
+  delay(msec);
+  lastButtonPressMillis = now;
+}
+
+void buttonOnOffCustomDelay(int pin1, int pin2, int msec) {
   digitalWrite(pin1, 1);
   digitalWrite(pin2, 1);
-  delayOnButtonPress();
+  delayOnButtonPress(msec);
   digitalWrite(pin1, 0);
   digitalWrite(pin2, 0);
 }
