@@ -16,8 +16,9 @@ Perhaps somebody will feel adventurous enough to make his own version of this pr
 The principle behind the idea is pretty simple. Arduino program connects to your Wi-Fi network and subscribes to a MQTT messages on a ```mobilus/blinds/command``` topic.
 
 Messages have syntax: ```<command> <number>```
-* ```command``` is one of: ```UP```, ```DO```, ```ST```, ```NO```, for raise, lower, stop and nop operations.
-Nop operation does nothing apart from navigating to requested blind number - can be used for testing purposes.
+* ```command``` is one of: ```UP```, ```DO```, ```ST```, ```NO```, ```PR```, ```SY```, for raise, lower, stop, nop, programming, synchronization operations.
+Nop operation does nothing apart from navigating to requested blind number - can be used for testing purposes. Programming becomes useful when associating remote's channel with a blind.
+Synchronization is useful in rare cases when "current blind" state gets corrupted and does not correspond to currently selected channel on a remote (this causes incorrect blind to acted upon).
 * ```number``` denotes the position of a blind.
 
 Hence, invoking a command
